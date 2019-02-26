@@ -1,0 +1,270 @@
+--- Booleans and logical operators
+
+true  = (x y -> x)
+false = (x y -> y)
+and   = (x y -> (x y false))
+or    = (x y -> (x true y))
+not   = (p a b -> (p b a))
+xor   = (p q -> (or (and p (not q)) (and (not p) q)))
+nxor  = (p q -> (not (xor p q)))
+
+
+--- Combinators
+
+id     = (a -> a)
+const  = (a b -> a)
+comp   = (f g x -> (f (g x)))
+flip   = (f x y -> (f y x))
+on     = comp comp comp
+apply  = (f c -> (c f))
+tupler = flip on flip
+
+
+--- Conditional operators
+
+if = (cond effect -> (cond effect id))
+
+
+--- Church numerals
+
+succ        = (n f x -> (f (n f x)))
+pred        = (n f x -> (n (g h -> (h (g f))) (const x) id))
+sub         = (m n -> (n pred m))
+add         = (a b -> (b succ a))
+mul         = (m n f -> (id (m (n f))))
+pow         = (m n -> (n m))
+isZero      = (n -> (n (const false) true))
+greaterThan = (a b -> (not (isZero (sub b a))))
+lessThan    = (a b -> (isZero (sub (succ b) a)))
+equal       = (a b -> (and (isZero (sub a b)) (isZero (sub b a))))
+
+
+--- Mathematical operators
+
++ = float.add
+- = flip float.sub
+* = float.mul
+/ = flip float.div
+% = flip float.mod
+^ = float.pow
+_ = float.log
+
+
+--- Bytes
+
+byte            = (b0 b1 b2 b3 b4 b5 b6 b7 -> (c -> (c b0 b1 b2 b3 b4 b5 b6 b7)))
+byte.shiftLeft  = (apply (b0 b1 b2 b3 b4 b5 b6 b7 -> (byte b1 b2 b3 b4 b5 b6 b7 b0)))
+byte.shiftRight = (apply (b0 b1 b2 b3 b4 b5 b6 b7 -> (byte b7 b0 b1 b2 b3 b4 b5 b6)))
+
+
+--- List operators
+
+nil      = c0
+cons     = (a b c d -> (c a (b c d)))
+head     = {(b c -> b) c0}
+tail     = (a b c -> (a (d e -> {d (e b)}) (d -> c) c0))
+fold     = (a b -> {a b})
+foldl    = (a b -> {(d e f -> (e (a f d))) (d -> d) b})
+init     = (a b c -> (a (d e f g h -> (g f (e d g h))) (d -> c0) 0 (d e -> {d (e b)}) (d -> c) c0))
+map      = (a b c -> (b (d -> (c (a d)))))
+do       = {(b c d -> (c (e f -> (e b (d e f))))) (b -> b) c0 (b c d -> (b (c d))) (b -> b)}
+anyTrue  = fold or false
+anyFalse = do [(fold and true) not]
+
+
+--- Argument handling
+
+arg.firstOf = (n x -> (n (r a -> r) x x))
+arg.lastOf  = (n -> (n true id id))
+arg.nthOf   = (size nth -> (arg.firstOf (succ nth) (arg.firstOf (sub size nth))))
+
+
+--- n-Tuples
+
+nTuple        = (n -> (n tupler id id))
+nTupleGet     = (n i t -> (t (arg.nthOf (succ n) i) id))
+nTupleMut     = (i f t nt -> (t (i (a b c -> (a (b c))) (e x -> (e (f x))) nt)))
+nTupleSet     = (i v -> (nTupleMut i (const v)))
+nTupleZipWith = (a b c d -> (a (e f g -> (e (h -> (f (i j -> (h (k l -> (k i j l)))))) (h -> (g (i j -> (h (k l m -> (k i m (l j))))))))) (e f -> (e (g -> (f (h i -> (g h i)))))) (e -> (c (a (f g h -> (f (i -> (g i (b h))))) (f -> f) (f -> f)) (e (f -> f)))) (e -> (d (e (f -> f))))))
+
+
+--- Boxes
+
+box          = nTuple c1
+box.getFirst = nTupleGet c1 c0
+box.mutFirst = nTupleMut c0
+box.setFirst = nTupleSet c0
+
+
+--- Pairs
+
+pair           = nTuple c2
+pair.getFirst  = nTupleGet c2 c0
+pair.getSecond = nTupleGet c2 c1
+pair.mutFirst  = nTupleMut c0
+pair.mutSecond = nTupleMut c1
+pair.setFirst  = nTupleSet c0
+pair.setSecond = nTupleSet c1
+pair.zipWith   = nTupleZipWith c2
+pair.map       = (f -> (do (map (apply f) [pair.mutFirst pair.mutSecond])))
+pair.+         = pair.zipWith +
+pair.-         = pair.zipWith -
+pair.*         = pair.zipWith *
+pair./         = pair.zipWith /
+pair.isEqual   = (p0 p1 -> (apply and (pair.zipWith float.equal p0 p1))
+
+
+--- Triples
+
+triple           = nTuple c3
+triple.getFirst  = nTupleGet c3 c0
+triple.getSecond = nTupleGet c3 c1
+triple.getThird  = nTupleGet c3 c2
+triple.mutFirst  = nTupleMut c0
+triple.mutSecond = nTupleMut c1
+triple.mutThird  = nTupleMut c2
+triple.setFirst  = nTupleSet c0
+triple.setSecond = nTupleSet c1
+triple.setThird  = nTupleSet c2
+triple.zipWith   = nTupleZipWith c3
+triple.map       = (f -> (do (map (apply f) [triple.mutFirst triple.mutSecond triple.mutThird])))
+triple.+         = triple.zipWith +
+triple.-         = triple.zipWith -
+triple.*         = triple.zipWith *
+triple./         = triple.zipWith /
+
+
+--- Quads
+
+quad           = nTuple c4
+quad.getFirst  = nTupleGet c4 c0
+quad.getSecond = nTupleGet c4 c1
+quad.getThird  = nTupleGet c4 c2
+quad.getFourth = nTupleGet c4 c3
+quad.mutFirst  = nTupleMut c0
+quad.mutSecond = nTupleMut c1
+quad.mutThird  = nTupleMut c2
+quad.mutFourth = nTupleMut c3
+quad.setFirst  = nTupleSet c0
+quad.setSecond = nTupleSet c1
+quad.setThird  = nTupleSet c2
+quad.setFourth = nTupleSet c3
+quad.zipWith   = nTupleZipWith c4
+quad.map       = (f -> (do (map (apply f) [quad.mutFirst quad.mutSecond quad.mutThird quad.mutFourth])))
+quad.+         = quad.zipWith +
+quad.-         = quad.zipWith -
+quad.*         = quad.zipWith *
+quad./         = quad.zipWith *
+
+
+--- Quints
+
+quint           = nTuple c5
+quint.getFirst  = nTupleGet c5 c0
+quint.getSecond = nTupleGet c5 c1
+quint.getThird  = nTupleGet c5 c2
+quint.getFourth = nTupleGet c5 c3
+quint.getFifth  = nTupleGet c5 c4
+quint.mutFirst  = nTupleMut c0
+quint.mutSecond = nTupleMut c1
+quint.mutThird  = nTupleMut c2
+quint.mutFourth = nTupleMut c3
+quint.mutFifth  = nTupleMut c4
+quint.setFirst  = nTupleSet c0
+quint.setSecond = nTupleSet c1
+quint.setThird  = nTupleSet c2
+quint.setFourth = nTupleSet c3
+quint.setFifth  = nTupleSet c4
+quint.zipWith   = nTupleZipWith c5
+quint.map       = (f -> (do (map (apply f) [quint.mutFirst quint.mutSecond quint.mutThird quint.mutFourth quint.mutFifth])))
+quint.+         = quint.zipWith +
+quint.-         = quint.zipWith -
+quint.*         = quint.zipWith *
+quint./         = quint.zipWith /
+
+
+--- 2D vectors
+
+v2         = pair
+v2.getX    = pair.getFirst
+v2.getY    = pair.getSecond
+v2.setX    = pair.setFirst
+v2.setY    = pair.setSecond
+v2.mutX    = pair.mutFirst
+v2.mutY    = pair.mutSecond
+v2.zipWith = pair.zipWith
+v2.map     = pair.map
+v2.+       = pair.zipWith +
+v2.-       = pair.zipWith -
+v2.*       = pair.zipWith *
+v2./       = pair.zipWith /
+v2.isEqual = pair.isEqual
+
+
+--- Random
+
+rnd = (seed -> (% (^ 2 32) (+ 12345 (* 1103515245 seed))))
+
+
+--- Debug
+
+nSteps = (a b c d e -> (d "\n" (a (f g h i -> (h g (f (b g) h i))) (f -> c0) c (f g h i -> (h "\n" (h f (g h i)))) c0 (f g -> {f (g d)}) (f -> e) c0)))
+
+
+--- Snake game
+--- . head      snake's head position
+--- . body      snake's body position
+--- . dir       direction the snake's head is facing
+--- . fruit     fruit's position
+--- . randNum   random number
+
+--- TODO: make initialFruitPos and seed (78) random
+snake                       = quint
+snake.initialState          = snake (v2 1 1) [] (v2 1 0) (v2 5 5) (rnd 45)
+snake.getHead               = quint.getFirst
+snake.getBody               = quint.getSecond
+snake.getDir                = quint.getThird
+snake.getFruit              = quint.getFourth
+snake.getRandNum            = quint.getFifth
+snake.setHead               = quint.setFirst
+snake.setBody               = quint.setSecond
+snake.setDir                = quint.setThird
+snake.setFruit              = quint.setFourth
+snake.setRandNum            = quint.setFifth
+snake.mutHead               = quint.mutFirst
+snake.mutBody               = quint.mutSecond
+snake.mutDir                = quint.mutThird
+snake.mutFruit              = quint.mutFourth
+snake.mutRandNum            = quint.mutFifth
+snake.step.updHead          = (s -> (snake.mutHead (do [(v2.+ (snake.getDir s)) (v2.map (% 10))]) s))
+snake.step.decBody          = snake.mutBody init
+snake.step.incBody          = (s -> (snake.mutBody (cons (snake.getHead s)) s))
+snake.step.newFruit         = (s -> (do [(snake.setFruit {(% 10 (snake.getRandNum s)) (% 10 (rnd (snake.getRandNum s)))}) (snake.mutRandNum (c2 rnd))] s))
+snake.step.isOverFruit      = (s -> (v2.isEqual (snake.getHead s) (snake.getFruit s)))
+snake.step.notOverFruit     = do [snake.step.incBody snake.step.decBody]
+snake.step.yesOverFruit     = do [snake.step.incBody snake.step.newFruit]
+snake.step.updBodyAndFruit  = (s -> (snake.step.isOverFruit s (snake.step.yesOverFruit s) (snake.step.notOverFruit s)))
+snake.step.updSnakeAndFruit = do [snake.step.updBodyAndFruit snake.step.updHead]
+snake.step.isGameOver       = (s -> (anyTrue (map (v2.isEqual (snake.getHead s)) (snake.getBody s))))
+snake.step                  = (s -> (snake.step.isGameOver (snake.step.updSnakeAndFruit s) snake.initialState (snake.step.updSnakeAndFruit s)))
+
+--- TODO
+--- snake.input = (string -> state -> state)
+--- snake.game  = (state -> input -> either string state)
+--- snake.play  = the game itself
+
+
+--- Input
+--- . 0 means 'render'
+--- . 1 means 'key'
+--- . 2 means 'tick'
+
+input        = pair
+input.type   = pair.getFirst
+input.getKey = pair.getSecond
+
+
+--- Main module
+
+--- start @ (1,2) w/ 6 head+body units, 4 right, 7 down, 1 right, 1 up, 1 left, game over, reset
+main = (snake.step (snake.setDir (v2 -1 0) (snake.step (snake.setDir (v2 0 -1) (snake.step (snake.setDir (v2 1 0) (snake.step (snake.step (snake.step (snake.step (snake.step (snake.step (snake.step (snake.setDir (v2 0 1) (snake.step (snake.step (snake.step (snake.step (snake (v2 1 2) [(v2 1 1) (v2 1 0) (v2 0 0) (v2 0 1) (v2 0 2)] (v2 1 0) (v2 0 2) (rnd 78))))))))))))))))))))
